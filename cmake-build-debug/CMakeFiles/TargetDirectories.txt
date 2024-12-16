@@ -1,0 +1,3 @@
+C:/Users/juanl/CLionProjects/NaziScrpt/cmake-build-debug/CMakeFiles/NaziScrpt.dir
+C:/Users/juanl/CLionProjects/NaziScrpt/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/Users/juanl/CLionProjects/NaziScrpt/cmake-build-debug/CMakeFiles/rebuild_cache.dir
