@@ -3,3 +3,4 @@ cmake-build-debug
 hitler.nzi
 out.asm
 CMakeLists.txt
+out.exe
