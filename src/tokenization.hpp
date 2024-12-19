@@ -16,7 +16,14 @@ enum TokenType {
     plus,
     star,
     sub,
-    slash
+    slash,
+    open_curly,
+    close_curly,
+    _if,
+    _else,
+    exc_mark,
+    great,
+    less
 };
 
 inline int bin_prec(TokenType const type) {
@@ -63,6 +70,12 @@ public:
                 else if (buf == "let") {
                     tokens.push_back(Token{TokenType::let});
                 }
+                else if (buf == "if") {
+                    tokens.push_back(Token{TokenType::_if});
+                }
+                else if (buf == "else") {
+                    tokens.push_back(Token{TokenType::_else});
+                }
                 else {
                     tokens.push_back(Token{TokenType::ident, buf});
                 }
@@ -107,6 +120,26 @@ public:
             }
             else if (currentChar().value() == '/') {
                 tokens.push_back(Token{TokenType::slash});
+                m_index++;
+            }
+            else if (currentChar().value() == '!') {
+                tokens.push_back(Token{TokenType::exc_mark});
+                m_index++;
+            }
+            else if (currentChar().value() == '>') {
+                tokens.push_back(Token{TokenType::great});
+                m_index++;
+            }
+            else if (currentChar().value() == '<') {
+                tokens.push_back(Token{TokenType::less});
+                m_index++;
+            }
+            else if (currentChar().value() == '{') {
+                tokens.push_back(Token{TokenType::open_curly});
+                m_index++;
+            }
+            else if (currentChar().value() == '}') {
+                tokens.push_back(Token{TokenType::close_curly});
                 m_index++;
             }
             else if (std::isspace(currentChar().value())) {

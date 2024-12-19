@@ -27,7 +27,7 @@ public:
                 }
                 const Var& var = gen->m_vars.at(term_ident->ident.value.value());
                 std::stringstream offset;
-                offset << "DWORD [esp + " << (gen->m_stack_size - var.stack_loc ) * 4 << "]\n";
+                offset << "DWORD [esp + " << (gen->m_stack_size - var.stack_loc ) * 4 << "]";
                 gen->push(offset.str());
             }
             void operator()(const NodeTermParen* term_paren) const {
@@ -98,6 +98,99 @@ public:
         std::visit(visitor, expr->var);
     }
 
+    std::string gen_bool_expr(const NodeBoolExpr* bool_expr) {
+        struct BoolExprVisitor {
+            Generator* gen;
+
+            std::string operator()(const NodeBoolExprEq* bool_expr_eq) const {
+                gen->gen_expr(bool_expr_eq->lhs);
+                gen->gen_expr(bool_expr_eq->rhs);
+                gen->pop("ebx");
+                gen->pop("eax");
+                gen->m_output << "    cmp eax, ebx\n";
+                std::string label = gen->label();
+                gen->m_output << "    jne " << label << "\n";
+                return label;
+            }
+
+            std::string operator()(const NodeBoolExprNeq* bool_expr_neq) const {
+                gen->gen_expr(bool_expr_neq->lhs);
+                gen->gen_expr(bool_expr_neq->rhs);
+                gen->pop("ebx");
+                gen->pop("eax");
+                gen->m_output << "    cmp eax, ebx\n";
+                std::string label = gen->label();
+                gen->m_output << "    je " << label << "\n";
+                return label;
+            }
+
+            std::string operator()(const NodeBoolExprGreat* bool_expr_great) const {
+                gen->gen_expr(bool_expr_great->lhs);
+                gen->gen_expr(bool_expr_great->rhs);
+                gen->pop("ebx");
+                gen->pop("eax");
+                gen->m_output << "    cmp eax, ebx\n";
+                std::string label = gen->label();
+                gen->m_output << "    jle " << label << "\n";
+                return label;
+            }
+
+
+            std::string operator()(const NodeBoolExprLess* bool_expr_less) const {
+                gen->gen_expr(bool_expr_less->lhs);
+                gen->gen_expr(bool_expr_less->rhs);
+                gen->pop("ebx");
+                gen->pop("eax");
+                gen->m_output << "    cmp eax, ebx\n";
+                std::string label = gen->label();
+                gen->m_output << "    jge " << label << "\n";
+                return label;
+            }
+
+            std::string operator()(const NodeExpr* bool_expr) const {
+                gen->gen_expr(bool_expr);
+                gen->pop("eax");
+                gen->m_output << "    cmp eax, 0\n";
+                std::string label = gen->label();
+                gen->m_output << "    je " << label << "\n";
+                return label;
+            }
+        };
+        BoolExprVisitor visitor{.gen = this};
+        return std::visit(visitor, bool_expr->var);
+
+    }
+
+    void gen_scope(const NodeScope* scope) {
+        Generator* gen = this;
+        for (const NodeStmt& stmt : scope->stmts) {
+            gen->gen_stmt(&stmt);
+        }
+    }
+
+    void gen_if(const NodeStmtIf* stmt_if) {
+        Generator* gen = this;
+        std::string _else = gen->gen_bool_expr(stmt_if->bool_expr);
+        std::string end_if = gen->label();
+        gen->gen_scope(stmt_if->scope);
+        gen->m_output << "    jmp " << end_if <<"\n";
+
+        if (stmt_if->_else == nullptr) {
+            gen->m_output << _else << ":\n";
+            gen->m_output << end_if << ":\n";
+        }
+        else if (stmt_if->_else->_if == nullptr) {
+            gen->m_output << _else << ":\n";
+            gen->gen_scope(stmt_if->_else->scope);
+            gen->m_output << end_if << ":\n";
+        }
+        else {
+            gen->m_output << _else << ":\n";
+            gen->gen_if(stmt_if->_else->_if);
+            gen->m_output << end_if << ":\n";
+        }
+    }
+
     void gen_stmt(const NodeStmt* stmt) {
         struct StmtVisitor {
             Generator* gen;
@@ -114,6 +207,9 @@ public:
                 }
                 gen->gen_expr(stmt_let->expr);
                 gen->m_vars.insert({stmt_let->ident.value.value(), Var {.stack_loc = gen->m_stack_size}});
+            }
+            void operator()(const NodeStmtIf* stmt_if) const {
+                gen->gen_if(stmt_if);
             }
         };
 
@@ -148,6 +244,13 @@ public:
 
 private:
 
+
+
+    std::string label() {
+        n_label++;
+        return "label" + std::to_string(n_label);
+    }
+
     void push(const std::string& reg) {
         m_output << "    push " << reg << "\n";
         m_stack_size++;
@@ -162,6 +265,7 @@ private:
         size_t stack_loc;
     };
 
+    int n_label{};
     std::stringstream m_output;
     const NodeProg m_prog;
     size_t m_stack_size{};

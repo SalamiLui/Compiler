@@ -16,6 +16,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+
     std::string contents;
     {
         std::fstream input(argv[1], std::ios::in);

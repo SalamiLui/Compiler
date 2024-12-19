@@ -40,12 +40,32 @@ struct  NodeBinExprSub {
     NodeExpr* rhs;
 };
 
+struct NodeBoolExprEq {
+    NodeExpr* lhs;
+    NodeExpr* rhs;
+};
+struct NodeBoolExprLess {
+    NodeExpr* lhs;
+    NodeExpr* rhs;
+};
+struct NodeBoolExprGreat {
+    NodeExpr* lhs;
+    NodeExpr* rhs;
+};
+struct NodeBoolExprNeq {
+    NodeExpr* lhs;
+    NodeExpr* rhs;
+};
 struct NodeTerm {
     std::variant<NodeTermIdent*, NodeTermIntLit*, NodeTermParen*> var;
 };
 
 struct NodeBinExpr {
     std::variant<NodeBinExprAdd*, NodeBinExprMulti*, NodeBinExprDiv*, NodeBinExprSub*> var;
+};
+
+struct NodeBoolExpr {
+    std::variant<NodeBoolExprEq*, NodeBoolExprNeq*, NodeBoolExprGreat*, NodeBoolExprLess*, NodeExpr*> var;
 };
 
 struct NodeExpr {
@@ -62,8 +82,30 @@ struct NodeStmtLet { // NOLINT(*-pro-type-member-init)
     NodeExpr* expr;
 };
 
+struct NodeStmt;
+
+struct NodeScope {
+    std::vector<NodeStmt> stmts;
+};
+
+struct NodeStmtIf;
+
+struct NodeElse {
+    NodeScope* scope = nullptr;
+    NodeStmtIf* _if = nullptr;
+
+};
+
+struct NodeStmtIf {
+    NodeBoolExpr* bool_expr;
+    NodeScope* scope;
+    NodeElse* _else = nullptr;
+};
+
+
+
 struct NodeStmt {
-    std::variant<NodeStmtExit*, NodeStmtLet*> stmt;
+    std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*> stmt;
 };
 
 struct NodeProg {
@@ -81,7 +123,6 @@ public:
     {
     }
 
-
     NodeProg parse_prog() {
         NodeProg prog;
         while (currentToken().has_value()) {
@@ -94,6 +135,16 @@ public:
 private:
 
     NodeTerm* parse_term() { // NOLINT(*-no-recursion)
+        if (currentToken().has_value() && currentToken().value().type == TokenType::sub &&
+            currentToken(1).has_value() && currentToken(1).value().type == TokenType::int_lit) {
+            consume(); // -
+            auto term_in_lit = m_allocator.alloc<NodeTermIntLit>();
+            term_in_lit->int_lit = consume();
+            term_in_lit->int_lit.value->insert(0, "-");
+            auto const term = m_allocator.alloc<NodeTerm>();
+            term->var = term_in_lit;
+            return term;
+        }
         if (currentToken().has_value() && currentToken().value().type == TokenType::int_lit) {
             auto term_in_lit = m_allocator.alloc<NodeTermIntLit>();
             term_in_lit->int_lit = consume();
@@ -126,7 +177,7 @@ private:
 
     NodeExpr* parse_expr(int const min_prec = 0) { // NOLINT(*-no-recursion)
         NodeTerm* term = parse_term();
-        auto const lhs = m_allocator.alloc<NodeExpr>();
+        auto lhs = m_allocator.alloc<NodeExpr>();
         lhs->var = term;
         while (true) {
             if (!currentToken().has_value() ||
@@ -171,7 +222,107 @@ private:
 
     }
 
-    NodeStmt parse_stmt() {
+    NodeBoolExpr* parse_bool_expr() {
+        NodeExpr* lhs= parse_expr();
+        auto bool_expr = m_allocator.alloc<NodeBoolExpr>();
+
+        if (!currentToken().has_value()) {
+            std::cerr << "Invalid bool expression" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        if(currentToken().value().type == TokenType::close_paren) {
+            consume();
+            bool_expr->var = lhs;
+            return bool_expr;
+        }
+
+        if (currentToken().value().type == TokenType::eq &&
+            currentToken(1).has_value() &&
+            currentToken(1).value().type == TokenType::eq) {
+
+            consume();
+            consume();
+            auto bool_expr_eq= genBoolExprCmp<NodeBoolExprEq>();
+            bool_expr_eq->lhs = lhs;
+            bool_expr->var = bool_expr_eq;
+        }
+        else if (currentToken().value().type == TokenType::exc_mark &&
+            currentToken(1).has_value() &&
+            currentToken(1).value().type == TokenType::eq) {
+
+            consume();
+            consume();
+            auto bool_expr_neq = genBoolExprCmp<NodeBoolExprNeq>();
+            bool_expr_neq->lhs = lhs;
+            bool_expr->var = bool_expr_neq;
+
+        }
+        else if (currentToken().value().type == TokenType::great) {
+            consume();
+            auto bool_expr_great = genBoolExprCmp<NodeBoolExprGreat>();
+            bool_expr_great->lhs = lhs;
+            bool_expr->var = bool_expr_great;
+        }
+        else if (currentToken().value().type == TokenType::less) {
+            consume();
+            auto bool_expr_less = genBoolExprCmp<NodeBoolExprLess>();
+            bool_expr_less->lhs = lhs;
+            bool_expr->var = bool_expr_less;
+        }
+        else {
+            std::cerr << "Invalid bool exprssion, expected valid comparition" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        checkCloseParen();
+        return bool_expr;
+
+    }
+
+    NodeScope* parse_scope() { // NOLINT(*-no-recursion)
+        auto scope = m_allocator.alloc<NodeScope>();
+            while (currentToken().has_value() &&
+                currentToken().value().type != TokenType::close_curly) {
+
+                scope->stmts.push_back(parse_stmt());
+            }
+        return scope;
+    }
+
+    NodeStmtIf* parse_if() {  // NOLINT(*-no-recursion)
+        auto stmt_if = m_allocator.alloc<NodeStmtIf>();
+        checkOpenParen();
+        stmt_if->bool_expr = parse_bool_expr();
+        checkOpenCurly();
+        NodeScope* scope = parse_scope();
+        checkCloseCurly();
+        if (currentToken().has_value() && currentToken().value().type == TokenType::_else) {
+            consume();
+            stmt_if->_else = parse_else();
+        }
+        stmt_if->scope = scope;
+        return stmt_if;
+    }
+
+    NodeElse* parse_else() {   // NOLINT(*-no-recursion)
+        auto _else = m_allocator.alloc<NodeElse>();
+        if (currentToken().has_value() && currentToken().value().type == TokenType::_if) {
+            consume();
+            _else->_if = parse_if();
+        }
+        else if (currentToken().has_value() && currentToken().value().type == TokenType::open_curly) {
+            consume();
+            _else->scope = parse_scope();
+            checkCloseCurly();
+        }
+        else {
+            std::cerr << "Invalid else statement, expected if stmt or scope" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        return _else;
+    }
+
+
+    NodeStmt parse_stmt() { // NOLINT(*-no-recursion)
         if (currentToken().value().type == TokenType::__exit)
         {
             consume();
@@ -193,7 +344,12 @@ private:
             checkSemi();
             return NodeStmt{.stmt = stmt_let};
         }
-        std::cerr << "Invalid expression " << std::endl;
+        if (currentToken().value().type == TokenType::_if)
+        {
+            consume();
+            return NodeStmt{.stmt = parse_if()};
+        }
+        std::cerr << "Invalid statement " << std::endl;
         exit(EXIT_FAILURE);
 
     }
@@ -225,13 +381,27 @@ private:
     Token checkIdent() {
         return checkToken(TokenType::ident, "Expected a valid identifier");
     }
+    Token checkOpenCurly() {
+        return checkToken(TokenType::open_curly, "Expected '{'");
+    }
+    Token checkCloseCurly() {
+        return checkToken(TokenType::close_curly, "Expected '}'");
+    }
 
-    [[nodiscard]] inline std::optional<Token> currentToken() const
+    [[nodiscard]] inline std::optional<Token> currentToken(size_t offset = 0) const
     {
-        if (m_index < m_tokens.size()) {
-            return m_tokens[m_index];
+        if (m_index + offset < m_tokens.size()) {
+            return m_tokens[m_index + offset];
         }
         return {};
+    }
+
+    template<typename BExpr>
+    inline BExpr* genBoolExprCmp(){
+        auto bool_expr_cmp = m_allocator.alloc<BExpr>();
+        NodeExpr* rhs = parse_expr();
+        bool_expr_cmp->rhs = rhs;
+        return bool_expr_cmp;
     }
 
 
