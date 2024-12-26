@@ -90,6 +90,123 @@ public:
                 tokens.push_back(Token{TokenType::int_lit, buf});
                 buf.clear();
             }
+            else {
+                switch (currentChar().value()) {
+                    case ';':
+                        tokens.push_back(Token{TokenType::semi});
+                        m_index++;
+                        break;
+
+                    case '(':
+                        tokens.push_back(Token{TokenType::open_paren});
+                        m_index++;
+                        break;
+
+                    case ')':
+                        tokens.push_back(Token{TokenType::close_paren});
+                        m_index++;
+                        break;
+
+                    case '=':
+                        tokens.push_back(Token{TokenType::eq});
+                        m_index++;
+                        break;
+
+                    case '+':
+                        tokens.push_back(Token{TokenType::plus});
+                        m_index++;
+                        break;
+
+                    case '*':
+                        tokens.push_back(Token{TokenType::star});
+                        m_index++;
+                        break;
+
+                    case '-':
+                        tokens.push_back(Token{TokenType::sub});
+                        m_index++;
+                        break;
+
+                    case '/':
+                        tokens.push_back(Token{TokenType::slash});
+                        m_index++;
+                        break;
+
+                    case '!':
+                        tokens.push_back(Token{TokenType::exc_mark});
+                        m_index++;
+                        break;
+
+                    case '>':
+                        tokens.push_back(Token{TokenType::great});
+                        m_index++;
+                        break;
+
+                    case '<':
+                        tokens.push_back(Token{TokenType::less});
+                        m_index++;
+                        break;
+
+                    case '{':
+                        tokens.push_back(Token{TokenType::open_curly});
+                        m_index++;
+                        break;
+
+                    case '}':
+                        tokens.push_back(Token{TokenType::close_curly});
+                        m_index++;
+                        break;
+
+                    case ' ':
+                        m_index++;
+                        break;
+
+                    case '\n':
+                        m_index++;
+                        break;
+
+                    default:
+                        std::cerr << "You entered an invalid token: "  << std::endl;
+                        exit(EXIT_FAILURE);
+                }
+            }
+        }
+        m_index = 0;
+        return tokens;
+
+        /*
+        while (currentChar().has_value()) {
+            if (std::isalpha(currentChar().value())) {
+                consume2buf();
+                while (currentChar().has_value() && std::isalnum(currentChar().value())) {
+                    consume2buf();
+                }
+                if (buf == "exit") {
+                    tokens.push_back(Token{TokenType::__exit});
+                }
+                else if (buf == "let") {
+                    tokens.push_back(Token{TokenType::let});
+                }
+                else if (buf == "if") {
+                    tokens.push_back(Token{TokenType::_if});
+                }
+                else if (buf == "else") {
+                    tokens.push_back(Token{TokenType::_else});
+                }
+                else {
+                    tokens.push_back(Token{TokenType::ident, buf});
+                }
+                buf.clear();
+
+            }
+            else if (std::isdigit(currentChar().value())) {
+                consume2buf();
+                while (currentChar().has_value() && std::isdigit(currentChar().value())) {
+                    consume2buf();
+                }
+                tokens.push_back(Token{TokenType::int_lit, buf});
+                buf.clear();
+            }
             else if (currentChar().value() == ';') {
                 tokens.push_back(Token{TokenType::semi});
                 m_index++;
@@ -149,8 +266,9 @@ public:
                 std::cerr << "You entered an invalid token: "  << std::endl;
             }
         }
-        m_index = 0;
-        return tokens;
+
+        */
+
 
     };
 

@@ -1,6 +1,5 @@
 #pragma once
 #include <sstream>
-#include <unordered_map>
 
 #include "parser.hpp"
 
@@ -21,11 +20,8 @@ public:
                 gen->push("eax");
             }
             void operator()(const NodeTermIdent* term_ident) const{
-                if (!gen->m_vars.contains(term_ident->ident.value.value())) {
-                    std::cerr << "Error: Variable " << term_ident->ident.value.value() << " not found\n";
-                    exit(EXIT_FAILURE);
-                }
-                const Var& var = gen->m_vars.at(term_ident->ident.value.value());
+
+                const Var& var = gen->searchVar(term_ident->ident.value.value());
                 std::stringstream offset;
                 offset << "DWORD [esp + " << (gen->m_stack_size - var.stack_loc ) * 4 << "]";
                 gen->push(offset.str());
@@ -162,10 +158,16 @@ public:
     }
 
     void gen_scope(const NodeScope* scope) {
-        Generator* gen = this;
+        size_t stack_size = m_stack_size;
         for (const NodeStmt& stmt : scope->stmts) {
-            gen->gen_stmt(&stmt);
+            gen_stmt(&stmt);
         }
+        m_output << "    add esp, "<< (m_stack_size -stack_size) * 4 << "\n";
+        while (m_stack_size != stack_size) {
+            m_vars.pop_back();
+            m_stack_size--;
+        }
+
     }
 
     void gen_if(const NodeStmtIf* stmt_if) {
@@ -201,15 +203,23 @@ public:
                 gen->m_output << "    invoke ExitProcess, edi\n";
             }
             void operator()(const NodeStmtLet* stmt_let) const {
-                if (gen->m_vars.contains(stmt_let->ident.value.value())) {
+                if (gen->isInVars(stmt_let->ident.value.value())) {
                     std::cerr << "Identifier " << stmt_let->ident.value.value() << " already exists\n";
                     exit(EXIT_FAILURE);
                 }
                 gen->gen_expr(stmt_let->expr);
-                gen->m_vars.insert({stmt_let->ident.value.value(), Var {.stack_loc = gen->m_stack_size}});
+                gen->m_vars.push_back(Var{.name = stmt_let->ident.value.value(), .stack_loc = gen->m_stack_size});
             }
             void operator()(const NodeStmtIf* stmt_if) const {
                 gen->gen_if(stmt_if);
+            }
+            void operator()(const NodeStmtIdent* stmt_ident) const {
+
+                const Var& var = gen->searchVar(stmt_ident->ident.value.value());
+                gen->gen_expr(stmt_ident->expr);
+                gen->pop("eax");
+                auto pos = (gen->m_stack_size - var.stack_loc ) * 4;
+                gen->m_output << "    mov DWORD [esp + " << pos << "], eax\n";
             }
         };
 
@@ -262,13 +272,34 @@ private:
     }
 
     struct Var {
+        std::string name;
         size_t stack_loc;
     };
+
+    [[nodiscard]] bool isInVars(std::string const &name) {
+        for (auto const i : m_vars) {
+            if (i.name == name) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    Var searchVar(std::string const &name) {
+        for (auto i : m_vars) {
+            if (i.name == name) {
+                return i;
+            }
+        }
+        std::cerr << "Error: Variable " << name << " not found\n";
+        exit(EXIT_FAILURE);
+
+    }
 
     int n_label{};
     std::stringstream m_output;
     const NodeProg m_prog;
     size_t m_stack_size{};
-    std::pmr::unordered_map<std::string, Var> m_vars;
+    std::vector<Var> m_vars;
 };
 

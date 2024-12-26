@@ -102,10 +102,13 @@ struct NodeStmtIf {
     NodeElse* _else = nullptr;
 };
 
-
+struct NodeStmtIdent { // NOLINT(*-pro-type-member-init)
+    Token ident;
+    NodeExpr* expr;
+};
 
 struct NodeStmt {
-    std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*> stmt;
+    std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtIdent*> stmt;
 };
 
 struct NodeProg {
@@ -348,6 +351,15 @@ private:
         {
             consume();
             return NodeStmt{.stmt = parse_if()};
+        }
+        if (currentToken().value().type == TokenType::ident)
+        {
+            auto stmt_ident = m_allocator.alloc<NodeStmtIdent>();
+            stmt_ident->ident = consume();
+            checkEq();
+            stmt_ident->expr = parse_expr();
+            checkSemi();
+            return NodeStmt{.stmt = stmt_ident};
         }
         std::cerr << "Invalid statement " << std::endl;
         exit(EXIT_FAILURE);
