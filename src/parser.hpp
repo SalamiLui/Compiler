@@ -4,6 +4,9 @@
 #include "arena.hpp"
 #include <variant>
 
+struct NodeTermCharLit {
+    Token char_lit;
+};
 
 struct NodeTermIntLit {
     Token int_lit;
@@ -57,7 +60,7 @@ struct NodeBoolExprNeq {
     NodeExpr* rhs;
 };
 struct NodeTerm {
-    std::variant<NodeTermIdent*, NodeTermIntLit*, NodeTermParen*> var;
+    std::variant<NodeTermIdent*, NodeTermIntLit*, NodeTermParen*, NodeTermCharLit*> var;
 };
 
 struct NodeBinExpr {
@@ -96,7 +99,7 @@ struct NodeElse {
 
 };
 
-struct NodeStmtIf {
+struct NodeStmtIf { // NOLINT(*-pro-type-member-init)
     NodeBoolExpr* bool_expr;
     NodeScope* scope;
     NodeElse* _else = nullptr;
@@ -107,8 +110,28 @@ struct NodeStmtIdent { // NOLINT(*-pro-type-member-init)
     NodeExpr* expr;
 };
 
+struct NodeStmtFor {
+    NodeScope* scope;
+    NodeBoolExpr* condition;
+    std::variant<NodeStmtLet* , NodeStmtIdent*> init;
+    NodeStmtIdent* update;
+
+};
+
+struct NodeStmtWhile {
+    NodeScope* scope;
+    NodeBoolExpr* condition;
+};
+
 struct NodeStmt {
-    std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtIdent*> stmt;
+    std::variant<
+        NodeStmtExit*,
+        NodeStmtLet*,
+        NodeStmtIf*,
+        NodeStmtIdent*,
+        NodeStmtFor*,
+        NodeStmtWhile*>
+    stmt;
 };
 
 struct NodeProg {
@@ -149,13 +172,21 @@ private:
             return term;
         }
         if (currentToken().has_value() && currentToken().value().type == TokenType::int_lit) {
-            auto term_in_lit = m_allocator.alloc<NodeTermIntLit>();
-            term_in_lit->int_lit = consume();
+            auto term_int_lit = m_allocator.alloc<NodeTermIntLit>();
+            term_int_lit->int_lit = consume();
             auto const term = m_allocator.alloc<NodeTerm>();
-            term->var = term_in_lit;
+            term->var = term_int_lit;
             return term;
 
         }
+        if (currentToken().has_value() && currentToken().value().type == char_lit) {
+            auto term_char_lit = m_allocator.alloc<NodeTermCharLit>();
+            term_char_lit->char_lit = consume();
+            auto const term = m_allocator.alloc<NodeTerm>();
+            term->var = term_char_lit;
+            return term;
+        }
+
         if (currentToken().has_value() && currentToken().value().type == TokenType::ident) {
             auto term_ident = m_allocator.alloc<NodeTermIdent>();
             term_ident->ident = consume();
@@ -169,7 +200,7 @@ private:
             NodeExpr* expr = parse_expr();
             term_paren->expr = expr;
             checkCloseParen();
-            auto term = m_allocator.alloc<NodeTerm>();
+            auto const term = m_allocator.alloc<NodeTerm>();
             term->var = term_paren;
             return term;
         }
@@ -180,7 +211,7 @@ private:
 
     NodeExpr* parse_expr(int const min_prec = 0) { // NOLINT(*-no-recursion)
         NodeTerm* term = parse_term();
-        auto lhs = m_allocator.alloc<NodeExpr>();
+        auto const lhs = m_allocator.alloc<NodeExpr>();
         lhs->var = term;
         while (true) {
             if (!currentToken().has_value() ||
@@ -227,14 +258,13 @@ private:
 
     NodeBoolExpr* parse_bool_expr() {
         NodeExpr* lhs= parse_expr();
-        auto bool_expr = m_allocator.alloc<NodeBoolExpr>();
+        auto const bool_expr = m_allocator.alloc<NodeBoolExpr>();
 
         if (!currentToken().has_value()) {
             std::cerr << "Invalid bool expression" << std::endl;
             exit(EXIT_FAILURE);
         }
         if(currentToken().value().type == TokenType::close_paren) {
-            consume();
             bool_expr->var = lhs;
             return bool_expr;
         }
@@ -276,13 +306,12 @@ private:
             std::cerr << "Invalid bool exprssion, expected valid comparition" << std::endl;
             exit(EXIT_FAILURE);
         }
-        checkCloseParen();
         return bool_expr;
 
     }
 
     NodeScope* parse_scope() { // NOLINT(*-no-recursion)
-        auto scope = m_allocator.alloc<NodeScope>();
+        auto const scope = m_allocator.alloc<NodeScope>();
             while (currentToken().has_value() &&
                 currentToken().value().type != TokenType::close_curly) {
 
@@ -292,9 +321,10 @@ private:
     }
 
     NodeStmtIf* parse_if() {  // NOLINT(*-no-recursion)
-        auto stmt_if = m_allocator.alloc<NodeStmtIf>();
+        auto const stmt_if = m_allocator.alloc<NodeStmtIf>();
         checkOpenParen();
         stmt_if->bool_expr = parse_bool_expr();
+        checkCloseParen();
         checkOpenCurly();
         NodeScope* scope = parse_scope();
         checkCloseCurly();
@@ -307,7 +337,7 @@ private:
     }
 
     NodeElse* parse_else() {   // NOLINT(*-no-recursion)
-        auto _else = m_allocator.alloc<NodeElse>();
+        auto const _else = m_allocator.alloc<NodeElse>();
         if (currentToken().has_value() && currentToken().value().type == TokenType::_if) {
             consume();
             _else->_if = parse_if();
@@ -322,6 +352,23 @@ private:
             exit(EXIT_FAILURE);
         }
         return _else;
+    }
+
+    NodeStmtLet* parse_let() {
+        auto const stmt_let = m_allocator.alloc<NodeStmtLet>();
+        stmt_let->ident = checkIdent();
+        checkEq();
+        stmt_let->expr = parse_expr();
+        checkSemi();
+        return stmt_let;
+    }
+
+    NodeStmtIdent* parse_ident() {
+        auto const stmt_ident = m_allocator.alloc<NodeStmtIdent>();
+        stmt_ident->ident = consume();
+        checkEq();
+        stmt_ident->expr = parse_expr();
+        return stmt_ident;
     }
 
 
@@ -340,12 +387,7 @@ private:
         if (currentToken().value().type == TokenType::let)
         {
             consume();
-            auto stmt_let = m_allocator.alloc<NodeStmtLet>();
-            stmt_let->ident = checkIdent();
-            checkEq();
-            stmt_let->expr = parse_expr();
-            checkSemi();
-            return NodeStmt{.stmt = stmt_let};
+            return NodeStmt{.stmt = parse_let()};
         }
         if (currentToken().value().type == TokenType::_if)
         {
@@ -354,13 +396,54 @@ private:
         }
         if (currentToken().value().type == TokenType::ident)
         {
-            auto stmt_ident = m_allocator.alloc<NodeStmtIdent>();
-            stmt_ident->ident = consume();
-            checkEq();
-            stmt_ident->expr = parse_expr();
+            // consume is in parse_ident
+            auto stmt = parse_ident();
             checkSemi();
-            return NodeStmt{.stmt = stmt_ident};
+            return NodeStmt{.stmt = stmt};
         }
+        if (currentToken().value().type == TokenType::_for) {
+            auto const stmt_for = m_allocator.alloc<NodeStmtFor>();
+            consume();
+            checkOpenParen();
+            if (currentToken().has_value() && currentToken().value().type == TokenType::let) {
+                consume();
+                stmt_for->init = parse_let();
+            }
+            else if (currentToken().has_value() && currentToken().value().type == TokenType::ident) {
+                // consume() is in parse_ident
+                stmt_for->init = parse_ident();
+                checkSemi();
+            }
+            else {
+                std::cerr << "Invalid For statement, expected valid initialization" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            stmt_for->condition = parse_bool_expr();
+            checkSemi();
+            if (!currentToken().has_value() || currentToken().value().type != TokenType::ident) {
+                std::cerr << "Invalid For condition, expected valid update stmt" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            stmt_for->update = parse_ident();
+            checkCloseParen();
+            checkOpenCurly();
+            stmt_for->scope = parse_scope();
+            checkCloseCurly();
+            return NodeStmt{.stmt = stmt_for};
+
+        }
+        if (currentToken().value().type == TokenType::_while) {
+            consume();
+            auto const stmt_while = m_allocator.alloc<NodeStmtWhile>();
+            checkOpenParen();
+            stmt_while->condition = parse_bool_expr();
+            checkCloseParen();
+            checkOpenCurly();
+            stmt_while->scope = parse_scope();
+            checkCloseCurly();
+            return NodeStmt{.stmt = stmt_while};
+        }
+
         std::cerr << "Invalid statement " << std::endl;
         exit(EXIT_FAILURE);
 
@@ -400,7 +483,7 @@ private:
         return checkToken(TokenType::close_curly, "Expected '}'");
     }
 
-    [[nodiscard]] inline std::optional<Token> currentToken(size_t offset = 0) const
+    [[nodiscard]] inline std::optional<Token> currentToken(size_t const offset = 0) const
     {
         if (m_index + offset < m_tokens.size()) {
             return m_tokens[m_index + offset];

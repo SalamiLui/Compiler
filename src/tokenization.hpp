@@ -4,6 +4,7 @@
 #include <vector>
 #include <optional>
 
+
 enum TokenType {
     __exit,  // NOLINT(*-reserved-identifier)
     int_lit,
@@ -23,7 +24,10 @@ enum TokenType {
     _else,
     exc_mark,
     great,
-    less
+    less,
+    char_lit,
+    _for,
+    _while
 };
 
 inline int bin_prec(TokenType const type) {
@@ -64,6 +68,7 @@ public:
                 while (currentChar().has_value() && std::isalnum(currentChar().value())) {
                     consume2buf();
                 }
+
                 if (buf == "exit") {
                     tokens.push_back(Token{TokenType::__exit});
                 }
@@ -75,6 +80,12 @@ public:
                 }
                 else if (buf == "else") {
                     tokens.push_back(Token{TokenType::_else});
+                }
+                else if (buf == "for") {
+                    tokens.push_back(Token{TokenType::_for});
+                }
+                else if (buf == "while") {
+                    tokens.push_back(Token{TokenType::_while});
                 }
                 else {
                     tokens.push_back(Token{TokenType::ident, buf});
@@ -89,6 +100,24 @@ public:
                 }
                 tokens.push_back(Token{TokenType::int_lit, buf});
                 buf.clear();
+            }
+            else if (currentChar().value() == '\'') {  // '
+                m_index++;
+                if (!currentChar().has_value()) {
+                    std::cerr << "Error: expected char after ' " << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                std::string  char_lit;
+                char_lit.push_back(currentChar().value());
+                m_index++;
+                if (currentChar().has_value() && currentChar().value() == '\'') {
+                    tokens.push_back(Token{TokenType::char_lit, char_lit});
+                    m_index++;
+                }
+                else {
+                    std::cerr << "Error: expected ' after char" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
             }
             else {
                 switch (currentChar().value()) {
@@ -164,6 +193,7 @@ public:
                     case '\n':
                         m_index++;
                         break;
+
 
                     default:
                         std::cerr << "You entered an invalid token: "  << std::endl;
