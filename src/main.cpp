@@ -28,15 +28,23 @@ int main(int argc, char *argv[]) {
     Tokenizer tokenizer(contents);
     std::vector<Token> tokens =  tokenizer.tokenize();
 
+
+
     Parser parser(tokens);
     NodeProg tree = parser.parse_prog();
 
+
+
     Generator generator(tree);
+
 
     {
         std::fstream file("../out.asm", std::ios::out);
         file << generator.generate();
     }
 
+
     return EXIT_SUCCESS;
+
+
 }

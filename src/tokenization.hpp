@@ -27,7 +27,15 @@ enum TokenType {
     less,
     char_lit,
     _for,
-    _while
+    _while,
+    print,
+    fun,
+    comma,
+    _return,
+    colon,
+    typeInt,
+    typeChar,
+    typeVoid
 };
 
 inline int bin_prec(TokenType const type) {
@@ -58,11 +66,16 @@ public:
     {
     }
 
+    /**
+    *
+    * Separates the source code string in Tokens by itering char to char
+*/
     inline std::vector<Token> tokenize()
     {
         std::vector<Token> tokens;
 
         while (currentChar().has_value()) {
+            // To tokenize reserved words or idents
             if (std::isalpha(currentChar().value())) {
                 consume2buf();
                 while (currentChar().has_value() && std::isalnum(currentChar().value())) {
@@ -87,12 +100,31 @@ public:
                 else if (buf == "while") {
                     tokens.push_back(Token{TokenType::_while});
                 }
+                else if (buf == "print") {
+                    tokens.push_back(Token{TokenType::print});
+                }
+                else if (buf == "fun") {
+                    tokens.push_back(Token{TokenType::fun});
+                }
+                else if (buf == "return") {
+                    tokens.push_back(Token{TokenType::_return});
+                }
+                else if (buf == "int") {
+                    tokens.push_back(Token{TokenType::typeInt});
+                }
+                else if (buf == "char") {
+                    tokens.push_back(Token{TokenType::typeChar});
+                }
+                else if (buf == "void") {
+                    tokens.push_back(Token{TokenType::typeVoid});
+                }
                 else {
                     tokens.push_back(Token{TokenType::ident, buf});
                 }
                 buf.clear();
 
             }
+            // to tokenize numbers
             else if (std::isdigit(currentChar().value())) {
                 consume2buf();
                 while (currentChar().has_value() && std::isdigit(currentChar().value())) {
@@ -101,6 +133,7 @@ public:
                 tokens.push_back(Token{TokenType::int_lit, buf});
                 buf.clear();
             }
+            // to tokenize chars, the char \' is '
             else if (currentChar().value() == '\'') {  // '
                 m_index++;
                 if (!currentChar().has_value()) {
@@ -108,6 +141,7 @@ public:
                     exit(EXIT_FAILURE);
                 }
                 std::string  char_lit;
+                // append to char_lit the char
                 char_lit.push_back(currentChar().value());
                 m_index++;
                 if (currentChar().has_value() && currentChar().value() == '\'') {
@@ -119,6 +153,7 @@ public:
                     exit(EXIT_FAILURE);
                 }
             }
+            // to tokenize special characters / grammar punctuations
             else {
                 switch (currentChar().value()) {
                     case ';':
@@ -186,6 +221,16 @@ public:
                         m_index++;
                         break;
 
+                    case ',':
+                        tokens.push_back(Token{TokenType::comma});
+                        m_index++;
+                        break;
+
+                    case ':':
+                        tokens.push_back(Token{TokenType::colon});
+                        m_index++;
+                        break;
+
                     case ' ':
                         m_index++;
                         break;
@@ -203,6 +248,11 @@ public:
         }
         m_index = 0;
         return tokens;
+
+        /**
+         * Ignore, this is the previous vertion for the tokenize function,
+         * still here because idk which is best optimized
+         */
 
         /*
         while (currentChar().has_value()) {
@@ -303,6 +353,10 @@ public:
     };
 
 private:
+    /**
+    * if the index is in the range of the source code string's (m_src) size then
+    * return the char at that index else return non value
+*/
     [[nodiscard]] inline std::optional<char> currentChar() const
     {
         if (m_index  < m_src.size()) {
@@ -311,12 +365,18 @@ private:
         return {};
     }
 
+    /**
+    * append to the buf string the current char in the source code string (m_src)
+*/
     inline void consume2buf() {
         buf.push_back(m_src[m_index++]);
     }
 
+    // the buffer which will be used to temporally contain the reserved words found in the source code
     std::string buf;
+    // the source code
     const std::string m_src;
+    // the index used to iter threw the source code (m_src)
     size_t m_index{};
 };
 
