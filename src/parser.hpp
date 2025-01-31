@@ -5,15 +5,17 @@
 #include <variant>
 
 
-
+// a char
 struct NodeTermCharLit {
     Token char_lit;
 };
 
+// an int (can be possitive or negative)
 struct NodeTermIntLit {
     Token int_lit;
 };
 
+// a variable
 struct NodeTermIdent {
     Token ident;
 };
@@ -31,27 +33,32 @@ struct NodeTermFunIdent {
     std::vector<NodeExpr*> args;
 };
 
-// '( [expr] )'
+// '( [expr] )', the term paren (parenthesis) is used like a regular arithmetic operation
+// to compute first an expretion
+// examle: 1*(2+1)
 struct NodeTermParen {
     NodeExpr* expr;
 };
 
-
+// lhs + rhs
 struct NodeBinExprAdd {
     NodeExpr* lhs;
     NodeExpr* rhs;
 };
 
+// lhs * rhs
 struct NodeBinExprMulti {
     NodeExpr* lhs;
     NodeExpr* rhs;
 };
 
+// lhs / rhs
 struct  NodeBinExprDiv {
     NodeExpr* lhs;
     NodeExpr* rhs;
 };
 
+// lhs - rhs
 struct  NodeBinExprSub {
     NodeExpr* lhs;
     NodeExpr* rhs;
@@ -77,7 +84,7 @@ struct NodeBoolExprNeq {
     NodeExpr* rhs;
 };
 
-
+// an int, a char, an identifier ...
 struct NodeTerm {
     std::variant<
         NodeTermIdent*,
@@ -88,12 +95,12 @@ struct NodeTerm {
             > var;
 };
 
-// Artimetics with terms
+// Artimetics with terms / expretions
 struct NodeBinExpr {
     std::variant<NodeBinExprAdd*, NodeBinExprMulti*, NodeBinExprDiv*, NodeBinExprSub*> var;
 };
 
-// Comparitions with terms
+// Comparitions with terms / expretions
 struct NodeBoolExpr {
     std::variant<NodeBoolExprEq*, NodeBoolExprNeq*, NodeBoolExprGreat*, NodeBoolExprLess*, NodeExpr*> var;
 };

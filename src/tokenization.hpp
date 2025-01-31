@@ -38,6 +38,10 @@ enum TokenType {
     typeVoid
 };
 
+/**
+* returns an int according to the arithmetic importance of that token
+* if the token is not an arithmetic token returns -1
+*/
 inline int bin_prec(TokenType const type) {
     switch (type) {
         case TokenType::plus:
