@@ -4,7 +4,13 @@
 #include <vector>
 #include <optional>
 
-
+/**
+ * @brief Enum representing the different types of tokens.
+ *
+ * This enum is used to categorize the tokens found in the source code during
+ * the tokenization process. Each value corresponds to a specific type of token,
+ * such as operators, keywords, or identifiers.
+ */
 enum TokenType {
     __exit,  // NOLINT(*-reserved-identifier)
     int_lit,
@@ -33,15 +39,19 @@ enum TokenType {
     comma,
     _return,
     colon,
+    open_bracket,
+    close_bracket,
     typeInt,
     typeChar,
     typeVoid
 };
 
 /**
-* returns an int according to the arithmetic importance of that token
-* if the token is not an arithmetic token returns -1
-*/
+ * @brief Returns an integer representing the arithmetic precedence of a token.
+ *
+ * @param type The type of token to evaluate.
+ * @return int The precedence value; returns -1 if the token is not an arithmetic operator.
+ */
 inline int bin_prec(TokenType const type) {
     switch (type) {
         case TokenType::plus:
@@ -56,7 +66,12 @@ inline int bin_prec(TokenType const type) {
             return -1;
     }
 };
-
+/**
+ * @brief Represents a token in the source code.
+ *
+ * This structure is used to store information about individual tokens
+ * found during the tokenization process, including its type and optional value.
+ */
 struct Token {
     TokenType type;
     std::optional<std::string> value;
@@ -71,11 +86,15 @@ public:
     }
 
     /**
-    *
-    * Separates the source code string in Tokens by itering char to char
-*/
-    inline std::vector<Token> tokenize()
-    {
+ * @brief Tokenizes the source code string by iterating character by character.
+ *
+ * This function scans the input source code and converts it into a vector
+ * of tokens, recognizing identifiers, keywords, numbers, characters,
+ * and punctuation symbols.
+ *
+ * @return std::vector<Token> A vector containing all identified tokens.
+ */
+    inline std::vector<Token> tokenize() {
         std::vector<Token> tokens;
 
         while (currentChar().has_value()) {
@@ -162,97 +181,107 @@ public:
                 switch (currentChar().value()) {
                     case ';':
                         tokens.push_back(Token{TokenType::semi});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
 
                     case '(':
                         tokens.push_back(Token{TokenType::open_paren});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
 
                     case ')':
                         tokens.push_back(Token{TokenType::close_paren});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
 
                     case '=':
                         tokens.push_back(Token{TokenType::eq});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
 
                     case '+':
                         tokens.push_back(Token{TokenType::plus});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
 
                     case '*':
                         tokens.push_back(Token{TokenType::star});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
 
                     case '-':
                         tokens.push_back(Token{TokenType::sub});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
 
                     case '/':
                         tokens.push_back(Token{TokenType::slash});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
 
                     case '!':
                         tokens.push_back(Token{TokenType::exc_mark});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
 
                     case '>':
                         tokens.push_back(Token{TokenType::great});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
 
                     case '<':
                         tokens.push_back(Token{TokenType::less});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
 
                     case '{':
                         tokens.push_back(Token{TokenType::open_curly});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
 
                     case '}':
                         tokens.push_back(Token{TokenType::close_curly});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
 
                     case ',':
                         tokens.push_back(Token{TokenType::comma});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
 
                     case ':':
                         tokens.push_back(Token{TokenType::colon});
-                        m_index++;
-                        break;
+                    m_index++;
+                    break;
+
+                    case '[':
+                        tokens.push_back(Token{TokenType::open_bracket});
+                    m_index++;
+                    break;
+
+                    case ']':
+                        tokens.push_back(Token{TokenType::close_bracket});
+                    m_index++;
+                    break;
 
                     case ' ':
                         m_index++;
-                        break;
+                    break;
 
                     case '\n':
                         m_index++;
-                        break;
+                    break;
 
 
                     default:
                         std::cerr << "You entered an invalid token: "  << std::endl;
-                        exit(EXIT_FAILURE);
+                    exit(EXIT_FAILURE);
                 }
             }
         }
         m_index = 0;
         return tokens;
-
+    };
         /**
          * Ignore, this is the previous vertion for the tokenize function,
          * still here because idk which is best optimized
@@ -354,13 +383,18 @@ public:
         */
 
 
-    };
+
 
 private:
     /**
-    * if the index is in the range of the source code string's (m_src) size then
-    * return the char at that index else return non value
-*/
+ * @brief Retrieves the current character from the source code string.
+ *
+ * This function checks if the current index is within the bounds of the
+ * source code string (`m_src`). If the index is valid, it returns the
+ * corresponding character; otherwise, it returns an empty optional value.
+ *
+ * @return std::optional<char> The character at the current index if within range, otherwise `std::nullopt`.
+ */
     [[nodiscard]] inline std::optional<char> currentChar() const
     {
         if (m_index  < m_src.size()) {
@@ -370,17 +404,37 @@ private:
     }
 
     /**
-    * append to the buf string the current char in the source code string (m_src)
-*/
+ * @brief Appends the current character to the buffer.
+ *
+ * This function adds the current character from the source code string (`m_src`)
+ * at the current index (`m_index`) to the buffer (`buf`). The index is then incremented.
+ */
     inline void consume2buf() {
         buf.push_back(m_src[m_index++]);
     }
 
-    // the buffer which will be used to temporally contain the reserved words found in the source code
+    /**
+ * @brief The buffer which will be used to temporarily contain the reserved words found in the source code.
+ *
+ * This buffer is used to store the characters of reserved words (keywords) or identifiers
+ * as they are read from the source code.
+ */
     std::string buf;
-    // the source code
+
+    /**
+ * @brief The source code string.
+ *
+ * This constant variable stores the entire source code to be tokenized and parsed by
+ * the tokenizer and parser functions.
+ */
     const std::string m_src;
-    // the index used to iter threw the source code (m_src)
+
+    /**
+ * @brief The index used to iterate through the source code.
+ *
+ * This variable keeps track of the current position in the source code string (`m_src`)
+ * while processing each character during tokenization or parsing.
+ */
     size_t m_index{};
 };
 
